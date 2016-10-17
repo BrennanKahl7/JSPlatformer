@@ -1,9 +1,10 @@
-.background    { background: rgb(52, 166, 251);
+.background    { background: rgb(145, 181, 255); }
                  table-layout: fixed;
                  border-spacing: 0;   }
 .background td { padding: 0;          }
 .lava          { background: rgb(255, 100, 100); }
-.wall          { background: white;   }
+.wall          { background: rgb(255, 238, 117); }
+.floater       { background: rgb(186, 182, 80);  }
 
 .game {
   overflow: hidden;
