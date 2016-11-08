@@ -1,5 +1,7 @@
+// Map each class of actor to a character
 var actorChars = {
   "@": Player,
+  "o": Coin, // A coin will wobble up and down
   "=": Lava, "|": Lava, "v": Lava  
 };
 
@@ -36,8 +38,7 @@ function Level(plan) {
       // Because there is a third case (space ' '), use an "else if" instead of "else"
       else if (ch == "!")
         fieldType = "lava";
-      else if (ch == "y")
-        fieldType = "floater";
+
       // "Push" the fieldType, which is a string, onto the gridLine array (at the end).
       gridLine.push(fieldType);
     }
@@ -79,6 +80,17 @@ function Player(pos) {
 }
 Player.prototype.type = "player";
 
+// Add a new actor type as a class
+function Coin(pos) {
+  this.basePos = this.pos = pos.plus(new Vector(0.2, 0.1));
+  this.size = new Vector(0.6, 0.6);
+  // Make it go back and forth in a sine wave.
+  this.wobble = Math.random() * Math.PI * 2;
+}
+Coin.prototype.type = "coin";
+
+// Lava is initialized based on the character, but otherwise has a
+// size and position
 function Lava(pos, ch) {
   this.pos = pos;
   this.size = new Vector(1, 1);
@@ -226,16 +238,18 @@ Level.prototype.obstacleAt = function(pos, size) {
 // Collision detection for actors is handled separately from 
 // tiles. 
 Level.prototype.actorAt = function(actor) {
-
+  // Loop over each actor in our actors list and compare the 
+  // boundary boxes for overlaps.
   for (var i = 0; i < this.actors.length; i++) {
     var other = this.actors[i];
-
+    // if the other actor isn't the acting actor
     if (other != actor &&
         actor.pos.x + actor.size.x > other.pos.x &&
         actor.pos.x < other.pos.x + other.size.x &&
         actor.pos.y + actor.size.y > other.pos.y &&
         actor.pos.y < other.pos.y + other.size.y)
-
+      // check if the boundaries overlap by comparing all sides for
+      // overlap and return the other actor if found
       return other;
   }
 };
@@ -269,9 +283,30 @@ Lava.prototype.act = function(step, level) {
     this.speed = this.speed.times(-1);
 };
 
+
 var maxStep = 0.05;
 
-var playerXSpeed = 15;
+var wobbleSpeed = 8, wobbleDist = 0.07;
+
+Coin.prototype.act = function(step) {
+  this.wobble += step * wobbleSpeed;
+  var wobblePos = Math.sin(this.wobble) * wobbleDist;
+  this.pos = this.basePos.plus(new Vector(0, wobblePos));
+};
+
+var maxStep = 0.05;
+
+var wobbleSpeed = 8, wobbleDist = 0.07;
+
+Coin.prototype.act = function(step) {
+  this.wobble += step * wobbleSpeed;
+  var wobblePos = Math.sin(this.wobble) * wobbleDist;
+  this.pos = this.basePos.plus(new Vector(0, wobblePos));
+};
+
+var maxStep = 0.05;
+
+var playerXSpeed = 7;
 
 Player.prototype.moveX = function(step, level, keys) {
   this.speed.x = 0;
@@ -291,15 +326,17 @@ Player.prototype.moveX = function(step, level, keys) {
     this.pos = newPos;
 };
 
-var gravity = 50;
-var jumpSpeed = 20;
+var gravity = 30;
+var jumpSpeed = 17;
 
 Player.prototype.moveY = function(step, level, keys) {
+  // Accelerate player downward (always)
   this.speed.y += step * gravity;;
   var motion = new Vector(0, this.speed.y * step);
   var newPos = this.pos.plus(motion);
   var obstacle = level.obstacleAt(newPos, this.size);
-
+  // The floor is also an obstacle -- only allow players to 
+  // jump if they are touching some obstacle.
   if (obstacle) {
     level.playerTouched(obstacle);
     if (keys.up && this.speed.y > 0)
@@ -319,7 +356,7 @@ Player.prototype.act = function(step, level, keys) {
   if (otherActor)
     level.playerTouched(otherActor.type, otherActor);
 
-  // Death animation
+  // Losing animation
   if (level.status == "lost") {
     this.pos.y += step;
     this.size.y -= step;
@@ -332,7 +369,19 @@ Level.prototype.playerTouched = function(type, actor) {
   // Player loses
   if (type == "lava" && this.status == null) {
     this.status = "lost";
-    this.finishDelay = 1;} 
+    this.finishDelay = 1;
+  } else if (type == "coin") {
+    this.actors = this.actors.filter(function(other) {
+      return other != actor;
+    });
+    // If there aren't any coins left, player wins
+    if (!this.actors.some(function(actor) {
+           return actor.type == "coin";
+         })) {
+      this.status = "won";
+      this.finishDelay = 1;
+    }
+  }
 };
 
 // Arrow key codes for readibility
@@ -411,6 +460,8 @@ function runGame(plans, Display) {
         startLevel(n);
       else if (n < plans.length - 1)
         startLevel(n + 1);
+      else
+        console.log("You win!");
     });
   }
   startLevel(0);
